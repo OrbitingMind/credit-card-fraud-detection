@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Card Fraud Detector</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; padding: 40px 20px; }
+        h1 { text-align: center; color: #00bcd4; margin-bottom: 8px; font-size: 2rem; }
+        p.subtitle { text-align: center; color: #888; margin-bottom: 10px; }
+        a.nav { display: block; text-align: center; margin-bottom: 30px; color: #00bcd4; text-decoration: none; }
+        .container { max-width: 700px; margin: 0 auto; background: #1a1a1a; padding: 40px; border-radius: 12px; border: 1px solid #2a2a2a; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field.full { grid-column: span 2; }
+        label { font-size: 0.85rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
+        input, select { background: #2a2a2a; border: 1px solid #333; color: #e0e0e0; padding: 10px 14px; border-radius: 8px; font-size: 0.95rem; outline: none; }
+        input:focus, select:focus { border-color: #00bcd4; }
+        select option { background: #2a2a2a; }
+        button { margin-top: 30px; width: 100%; padding: 14px; background: #00bcd4; color: #000; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+        button:hover { background: #00acc1; }
+        .result { margin-top: 30px; padding: 20px; border-radius: 10px; text-align: center; display: none; }
+        .result.safe { background: #1b3a2b; border: 1px solid #2e7d52; }
+        .result.suspicious { background: #3a2e1b; border: 1px solid #7d5e2e; }
+        .result.fraud { background: #3a1b1b; border: 1px solid #7d2e2e; }
+        .result h2 { font-size: 1.6rem; margin-bottom: 8px; }
+        .result.safe h2 { color: #4caf50; }
+        .result.suspicious h2 { color: #ff9800; }
+        .result.fraud h2 { color: #f44336; }
+        .result p { color: #aaa; font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+    <h1>Credit Card Fraud Detector</h1>
+    <p class="subtitle">Enter transaction details to check fraud risk</p>
+    <a class="nav" href="/batch">→ Batch Dashboard</a>
+
+    <div class="container">
+        <div class="grid">
+            <div class="field">
+                <label>Transaction Amount ($)</label>
+                <input type="number" id="amt" placeholder="e.g. 150.00" step="0.01">
+            </div>
+            <div class="field">
+                <label>Category</label>
+                <select id="category">
+                    {% for cat in categories %}
+                    <option value="{{ cat }}">{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label>Gender</label>
+                <select id="gender">
+                    {% for g in genders %}
+                    <option value="{{ g }}">{{ g }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label>Age</label>
+                <input type="number" id="age" placeholder="e.g. 35">
+            </div>
+            <div class="field">
+                <label>Customer Lat</label>
+                <input type="number" id="lat" placeholder="e.g. 36.07" step="0.0001">
+            </div>
+            <div class="field">
+                <label>Customer Long</label>
+                <input type="number" id="long" placeholder="e.g. -81.17" step="0.0001">
+            </div>
+            <div class="field">
+                <label>Merchant Lat</label>
+                <input type="number" id="merch_lat" placeholder="e.g. 36.01" step="0.0001">
+            </div>
+            <div class="field">
+                <label>Merchant Long</label>
+                <input type="number" id="merch_long" placeholder="e.g. -82.04" step="0.0001">
+            </div>
+            <div class="field">
+                <label>Hour of Transaction (0-23)</label>
+                <input type="number" id="hour" placeholder="e.g. 22" min="0" max="23">
+            </div>
+            <div class="field">
+                <label>Day of Week (0=Mon, 6=Sun)</label>
+                <input type="number" id="day_of_week" placeholder="e.g. 5" min="0" max="6">
+            </div>
+            <div class="field">
+                <label>City Population</label>
+                <input type="number" id="city_pop" placeholder="e.g. 3495">
+            </div>
+            <div class="field">
+                <label>ZIP Code</label>
+                <input type="number" id="zip" placeholder="e.g. 28656">
+            </div>
+            <div class="field">
+                <label>City</label>
+                <select id="city">
+                    {% for c in cities %}
+                    <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label>State</label>
+                <select id="state">
+                    {% for s in states %}
+                    <option value="{{ s }}">{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field full">
+                <label>Job</label>
+                <select id="job">
+                    {% for j in jobs %}
+                    <option value="{{ j }}">{{ j }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <button onclick="predict()">Check Fraud Risk</button>
+
+        <div class="result" id="result">
+            <h2 id="result-label"></h2>
+            <p id="result-score"></p>
+        </div>
+    </div>
+
+    <script>
+        async function predict() {
+            const formData = new FormData();
+
+            // Dropdowns — send real name values
+            ['category', 'gender', 'city', 'state', 'job'].forEach(f => {
+                formData.append(f, document.getElementById(f).value);
+            });
+
+            // Number inputs
+            ['amt', 'age', 'lat', 'long', 'merch_lat', 'merch_long',
+             'hour', 'day_of_week', 'city_pop', 'zip'].forEach(f => {
+                formData.append(f, document.getElementById(f).value);
+            });
+
+            const res = await fetch('/predict', {method: 'POST', body: formData});
+            const data = await res.json();
+
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result ' + data.label.toLowerCase();
+            resultDiv.style.display = 'block';
+            document.getElementById('result-label').textContent = data.label;
+            document.getElementById('result-score').textContent = `Fraud Risk Score: ${data.score}%`;
+        }
+    </script>
+</body>
+</html>

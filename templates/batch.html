@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Fraud Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; padding: 40px 20px; }
+        h1 { text-align: center; color: #00bcd4; margin-bottom: 8px; font-size: 2rem; }
+        p.subtitle { text-align: center; color: #888; margin-bottom: 40px; }
+        .upload-box { max-width: 600px; margin: 0 auto 40px; background: #1a1a1a; padding: 40px; border-radius: 12px; border: 1px solid #2a2a2a; text-align: center; }
+        input[type="file"] { color: #aaa; margin-bottom: 20px; }
+        button { padding: 12px 40px; background: #00bcd4; color: #000; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+        button:hover { background: #00acc1; }
+        .stats { max-width: 900px; margin: 0 auto 30px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .stat-card { background: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #2a2a2a; }
+        .stat-card h3 { font-size: 2rem; margin-bottom: 6px; }
+        .stat-card p { color: #888; font-size: 0.85rem; }
+        .safe-card h3 { color: #4caf50; }
+        .suspicious-card h3 { color: #ff9800; }
+        .fraud-card h3 { color: #f44336; }
+        table { max-width: 900px; margin: 0 auto; width: 100%; border-collapse: collapse; background: #1a1a1a; border-radius: 12px; overflow: hidden; }
+        th { background: #2a2a2a; padding: 12px 16px; text-align: left; font-size: 0.8rem; color: #aaa; text-transform: uppercase; }
+        td { padding: 12px 16px; border-bottom: 1px solid #222; font-size: 0.9rem; }
+        .badge { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .badge.safe { background: #1b3a2b; color: #4caf50; }
+        .badge.suspicious { background: #3a2e1b; color: #ff9800; }
+        .badge.fraud { background: #3a1b1b; color: #f44336; }
+        .hidden { display: none; }
+        #loading { text-align: center; color: #00bcd4; margin: 20px; }
+        a.nav { display: block; text-align: center; margin-bottom: 30px; color: #00bcd4; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <h1>Batch Fraud Dashboard</h1>
+    <p class="subtitle">Upload a CSV of transactions for bulk analysis</p>
+    <a class="nav" href="/">← Single Transaction Checker</a>
+
+    <div class="upload-box">
+        <input type="file" id="csvFile" accept=".csv"><br>
+        <button onclick="uploadCSV()">Analyze Transactions</button>
+    </div>
+
+    <div id="loading" class="hidden">Analyzing transactions...</div>
+
+    <div id="results" class="hidden">
+        <div class="stats">
+            <div class="stat-card safe-card">
+                <h3 id="safe-count">0</h3>
+                <p>Safe Transactions</p>
+            </div>
+            <div class="stat-card suspicious-card">
+                <h3 id="suspicious-count">0</h3>
+                <p>Suspicious Transactions</p>
+            </div>
+            <div class="stat-card fraud-card">
+                <h3 id="fraud-count">0</h3>
+                <p>Fraud Detected</p>
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Amount</th>
+                    <th>Category</th>
+                    <th>Age</th>
+                    <th>Hour</th>
+                    <th>Risk Score</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="results-body"></tbody>
+        </table>
+    </div>
+
+    <script>
+        async function uploadCSV() {
+            const file = document.getElementById('csvFile').files[0];
+            if (!file) { alert('Please select a CSV file'); return; }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+
+            const res = await fetch('/batch', {method: 'POST', body: formData});
+            const data = await res.json();
+
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('results').classList.remove('hidden');
+
+            let safe = 0, suspicious = 0, fraud = 0;
+            const tbody = document.getElementById('results-body');
+            tbody.innerHTML = '';
+
+            data.results.forEach((row, i) => {
+                if (row.label === 'Safe') safe++;
+                else if (row.label === 'Suspicious') suspicious++;
+                else fraud++;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td>$${row.amt}</td>
+                        <td>${row.category}</td>
+                        <td>${row.age}</td>
+                        <td>${row.hour}</td>
+                        <td>${row.score}%</td>
+                        <td><span class="badge ${row.label.toLowerCase()}">${row.label}</span></td>
+                    </tr>`;
+            });
+
+            document.getElementById('safe-count').textContent = safe;
+            document.getElementById('suspicious-count').textContent = suspicious;
+            document.getElementById('fraud-count').textContent = fraud;
+        }
+    </script>
+</body>
+</html>
